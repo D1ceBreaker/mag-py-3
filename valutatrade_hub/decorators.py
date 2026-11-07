@@ -27,6 +27,7 @@ def log_action(
                 "currency_code": bound.arguments.get("currency_code", "USD"),
                 "amount": bound.arguments.get("amount"),
                 "base": "USD",
+                "rate": None,
             }
             try:
                 result = function(*args, **kwargs)
@@ -38,7 +39,12 @@ def log_action(
                 )
                 LOGGER.info(action.upper(), extra={"event": event})
                 raise
-            event.update(result="OK", rate=getattr(result, "rate", None))
+            event.update(
+                result="OK",
+                rate=getattr(result, "rate", None),
+                currency_code=getattr(result, "currency_code", event["currency_code"]),
+                amount=getattr(result, "amount", event["amount"]),
+            )
             if verbose:
                 event.update(
                     before=getattr(result, "before", None),
