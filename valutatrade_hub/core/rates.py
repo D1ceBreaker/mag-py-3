@@ -2,7 +2,6 @@ import math
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from valutatrade_hub.core.currencies import CryptoCurrency, get_currency
 from valutatrade_hub.core.exceptions import (
@@ -11,22 +10,19 @@ from valutatrade_hub.core.exceptions import (
     StorageError,
     ValidationError,
 )
+from valutatrade_hub.core.rate_models import (
+    RateQuote,
+    RatesSnapshot,
+    split_currency_pair,
+)
 from valutatrade_hub.core.utils import (
     cached_rates,
     iso_utc,
     parse_timestamp,
     utc_now,
-    validate_amount,
 )
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
-
-
-@dataclass(frozen=True, slots=True)
-class RateQuote:
-    rate: float
-    updated_at: str
-    source: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,13 +44,11 @@ class RatesService:
         self._refresh = refresh
         self._cached_read = cached_rates(1.0)(self._load_snapshot)
 
-    def _load_snapshot(self, file_version: tuple[str, int, int]) -> dict[str, Any]:
-        data = self.database.read("rates.json", {"pairs": {}, "last_refresh": None})
-        if not isinstance(data, dict) or not isinstance(data.get("pairs"), dict):
-            raise StorageError("Некорректный формат rates.json")
-        return data
+    def _load_snapshot(self, file_version: tuple[str, int, int]) -> RatesSnapshot:
+        data = self.database.read("rates.json", RatesSnapshot().to_dict())
+        return RatesSnapshot.from_dict(data)
 
-    def snapshot(self) -> dict[str, Any]:
+    def snapshot(self) -> RatesSnapshot:
         path = self.settings.path("rates.json")
         try:
             stat = path.stat()
@@ -75,28 +69,17 @@ class RatesService:
         if source == target:
             return RateQuote(1.0, iso_utc(), "identity")
         graph: dict[str, list[tuple[str, RateQuote]]] = {}
-        for pair, entry in self.snapshot()["pairs"].items():
-            try:
-                left, right = pair.split("_")
-                left = get_currency(left).code
-                right = get_currency(right).code
-                rate = validate_amount(entry["rate"])
-                timestamp = entry["updated_at"]
-                if not isinstance(timestamp, str):
-                    raise ValueError("updated_at")
-                parse_timestamp(timestamp)
-                origin = str(entry.get("source", "cache"))
-            except (KeyError, TypeError, ValueError, ValidationError) as error:
-                raise StorageError(f"Некорректная запись курса '{pair}'") from error
-            if not allow_stale and not self.is_fresh(timestamp):
+        for pair, quote in self.snapshot().pairs.items():
+            left, right = split_currency_pair(pair)
+            left = get_currency(left).code
+            right = get_currency(right).code
+            if not allow_stale and not self.is_fresh(quote.updated_at):
                 continue
-            graph.setdefault(left, []).append(
-                (right, RateQuote(rate, timestamp, origin))
-            )
-            inverse = 1.0 / rate
+            graph.setdefault(left, []).append((right, quote))
+            inverse = 1.0 / quote.rate
             if math.isfinite(inverse):
                 graph.setdefault(right, []).append(
-                    (left, RateQuote(inverse, timestamp, origin))
+                    (left, RateQuote(inverse, quote.updated_at, quote.source))
                 )
         queue: deque[tuple[str, float, str, tuple[str, ...]]] = deque(
             [(source, 1.0, iso_utc(), ())]
@@ -156,9 +139,9 @@ class RatesService:
         if top is not None and (isinstance(top, bool) or top <= 0):
             raise ValidationError("'top' должен быть положительным целым числом")
         snapshot = self.snapshot()
-        if not snapshot["pairs"]:
+        if not snapshot.pairs:
             raise ValidationError("Локальный кеш курсов пуст. Выполните update-rates")
-        codes = {code for pair in snapshot["pairs"] for code in pair.split("_")}
+        codes = {code for pair in snapshot.pairs for code in pair.split("_")}
         if currency_code is not None:
             selected = get_currency(currency_code).code
             codes &= {selected}

@@ -1,10 +1,10 @@
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from valutatrade_hub.core.exceptions import ApiRequestError, ValidationError
-from valutatrade_hub.core.utils import iso_utc, validate_amount
+from valutatrade_hub.core.rate_models import RateQuote
+from valutatrade_hub.core.utils import iso_utc
 from valutatrade_hub.parser_service.api_clients import (
     BaseApiClient,
     CoinGeckoClient,
@@ -51,7 +51,7 @@ class RatesUpdater:
             raise ValueError("Источники курсов не заданы")
         LOGGER.info("Начато обновление курсов")
         timestamp = iso_utc()
-        combined: dict[str, dict[str, Any]] = {}
+        combined: dict[str, RateQuote] = {}
         errors: dict[str, str] = {}
         successful_sources = 0
         for client in selected:
@@ -61,11 +61,7 @@ class RatesUpdater:
                 if not rates:
                     raise ApiRequestError("источник не вернул курсы")
                 normalized = {
-                    pair: {
-                        "rate": validate_amount(value),
-                        "updated_at": timestamp,
-                        "source": client.name,
-                    }
+                    pair: RateQuote(value, timestamp, client.name)
                     for pair, value in rates.items()
                 }
             except (ApiRequestError, ValidationError, ValueError, TypeError) as error:
@@ -78,6 +74,6 @@ class RatesUpdater:
         if successful_sources == 0:
             raise ApiRequestError("все источники курсов недоступны; проверьте журнал")
         count = self.storage.save_rates(combined, timestamp)
-        last_refresh = self.storage.read_cache().get("last_refresh") or timestamp
+        last_refresh = self.storage.read_cache().last_refresh or timestamp
         LOGGER.info("Обновлено %s курсов, ошибок источников: %s", count, len(errors))
         return UpdateResult(count, last_refresh, errors)

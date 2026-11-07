@@ -10,7 +10,8 @@ from valutatrade_hub.core.exceptions import (
     ValidationError,
 )
 from valutatrade_hub.core.models import Portfolio, User
-from valutatrade_hub.core.rates import RateQuote, RateRow, RatesService
+from valutatrade_hub.core.rate_models import RateQuote
+from valutatrade_hub.core.rates import RateRow, RatesService
 from valutatrade_hub.core.utils import iso_utc, validate_amount, validate_balance
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
