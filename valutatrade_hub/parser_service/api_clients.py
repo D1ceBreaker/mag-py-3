@@ -11,7 +11,12 @@ from valutatrade_hub.parser_service.config import ParserConfig
 def _checked_rate(value: object, source: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ApiRequestError(f"{source}: некорректный тип курса")
-    rate = float(value)
+    try:
+        rate = float(value)
+    except OverflowError as error:
+        raise ApiRequestError(
+            f"{source}: курс выходит за допустимый диапазон"
+        ) from error
     if not math.isfinite(rate) or rate <= 0:
         raise ApiRequestError(
             f"{source}: курс должен быть положительным конечным числом"
@@ -131,7 +136,9 @@ class ExchangeRateApiClient(BaseApiClient):
             if value is None:
                 continue
             base_to_currency = _checked_rate(value, "ExchangeRate-API")
-            rates[f"{code}_{self.config.base_currency}"] = 1.0 / base_to_currency
+            rates[f"{code}_{self.config.base_currency}"] = _checked_rate(
+                1.0 / base_to_currency, "ExchangeRate-API"
+            )
         if not rates:
             raise ApiRequestError(
                 "ExchangeRate-API не вернул курсы отслеживаемых валют"

@@ -18,14 +18,23 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(event, ensure_ascii=False, default=str)
 
 
+class TextFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        timestamp = datetime.fromtimestamp(record.created, UTC).isoformat()
+        context = " ".join(
+            f"{key}={value!r}" for key, value in getattr(record, "event", {}).items()
+        )
+        return (
+            f"{record.levelname} {timestamp} {record.getMessage()} {context}".rstrip()
+        )
+
+
 def configure_logging() -> None:
     settings = SettingsLoader()
     directory = Path(str(settings.get("log_dir"))).expanduser()
     directory.mkdir(parents=True, exist_ok=True)
     formatter = (
-        JsonFormatter()
-        if settings.get("log_format") == "json"
-        else logging.Formatter("%(levelname)s %(asctime)s %(message)s")
+        JsonFormatter() if settings.get("log_format") == "json" else TextFormatter()
     )
     for name, filename in (("actions", "actions.log"), ("parser", "parser.log")):
         logger = logging.getLogger(f"valutatrade.{name}")

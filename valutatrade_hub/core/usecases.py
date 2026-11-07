@@ -5,6 +5,7 @@ from typing import Any
 from valutatrade_hub.core.currencies import get_currency
 from valutatrade_hub.core.exceptions import (
     AuthenticationError,
+    CurrencyNotFoundError,
     InsufficientFundsError,
     StorageError,
     ValidationError,
@@ -85,7 +86,11 @@ class TradingService:
             self.database.write(
                 "portfolios.json", [*portfolios, Portfolio(user).to_dict()]
             )
-            self.database.write("users.json", [*users, user.to_dict()])
+            try:
+                self.database.write("users.json", [*users, user.to_dict()])
+            except StorageError:
+                self.database.write("portfolios.json", portfolios)
+                raise
             return user
 
     def login(self, username: str, password: str) -> User:
@@ -176,9 +181,11 @@ class TradingService:
 
     def show_portfolio(self, base: str | None = None) -> PortfolioView:
         user = self._require_user()
-        base = get_currency(
-            base or str(SettingsLoader().get("default_base_currency"))
-        ).code
+        base = base or str(SettingsLoader().get("default_base_currency"))
+        try:
+            base = get_currency(base).code
+        except CurrencyNotFoundError as error:
+            raise ValidationError(f"Неизвестная базовая валюта '{base}'") from error
         with self.database.transaction():
             portfolio = self._load_portfolio()
         rows: list[PortfolioRow] = []
@@ -186,9 +193,13 @@ class TradingService:
             rate = self.rates.get_rate(code, base).rate if wallet.balance else 0.0
             value = validate_balance(wallet.balance * rate)
             rows.append(PortfolioRow(code, wallet.balance, value))
-        return PortfolioView(
-            user.username, base, rows, math.fsum(row.value for row in rows)
-        )
+        try:
+            total = math.fsum(row.value for row in rows)
+        except OverflowError as error:
+            raise ValidationError(
+                "Стоимость портфеля выходит за допустимый диапазон"
+            ) from error
+        return PortfolioView(user.username, base, rows, total)
 
     @log_action("BUY", verbose=True)
     def buy(self, currency_code: str, amount: float) -> TradeResult:
@@ -206,6 +217,11 @@ class TradingService:
             raise ValidationError(
                 "USD — расчётная валюта. Для пополнения используйте deposit"
             )
+        if not buying:
+            with self.database.transaction():
+                wallet = self._load_portfolio().get_wallet(code)
+                if amount > wallet.balance:
+                    raise InsufficientFundsError(wallet.balance, amount, code)
         quote = self.rates.get_rate(code, "USD")
         value = validate_amount(amount * quote.rate)
         with self.database.transaction():

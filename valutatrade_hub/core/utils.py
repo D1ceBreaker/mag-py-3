@@ -25,7 +25,10 @@ def normalize_currency(code: str) -> str:
 def validate_amount(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (float, int)):
         raise ValidationError("'amount' должен быть положительным числом")
-    amount = float(value)
+    try:
+        amount = float(value)
+    except OverflowError as error:
+        raise ValidationError("'amount' выходит за допустимый диапазон") from error
     if not math.isfinite(amount) or amount <= 0:
         raise ValidationError("'amount' должен быть положительным числом")
     return amount
@@ -34,7 +37,10 @@ def validate_amount(value: object) -> float:
 def validate_balance(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (float, int)):
         raise ValidationError("Баланс должен быть неотрицательным числом")
-    balance = float(value)
+    try:
+        balance = float(value)
+    except OverflowError as error:
+        raise ValidationError("Баланс выходит за допустимый диапазон") from error
     if not math.isfinite(balance) or balance < 0:
         raise ValidationError("Баланс должен быть неотрицательным числом")
     return balance

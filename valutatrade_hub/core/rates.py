@@ -143,7 +143,7 @@ class RatesService:
             raise ValidationError("Локальный кеш курсов пуст. Выполните update-rates")
         codes = {code for pair in snapshot.pairs for code in pair.split("_")}
         if currency_code is not None:
-            selected = get_currency(currency_code).code
+            selected = currency_code.strip().upper()
             codes &= {selected}
             if not codes:
                 raise ValidationError(f"Курс для '{selected}' не найден в кеше")

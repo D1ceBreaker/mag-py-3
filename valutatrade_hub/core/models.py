@@ -218,7 +218,12 @@ class Portfolio:
                 continue
             rate = 1.0 if code == base else validate_amount(rate_provider(code, base))
             values.append(wallet.balance * rate)
-        total = math.fsum(values)
+        try:
+            total = math.fsum(values)
+        except OverflowError as error:
+            raise ValidationError(
+                "Стоимость портфеля выходит за допустимый диапазон"
+            ) from error
         if not math.isfinite(total):
             raise ValidationError("Стоимость портфеля выходит за допустимый диапазон")
         return total
