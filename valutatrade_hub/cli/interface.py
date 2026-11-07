@@ -1,5 +1,3 @@
-"""Разбор команд и вывод результатов консольного приложения."""
-
 import argparse
 import shlex
 import sys

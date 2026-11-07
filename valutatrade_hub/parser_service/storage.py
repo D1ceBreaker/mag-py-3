@@ -1,5 +1,3 @@
-"""Сохраняет актуальный срез курсов и историю измерений в JSON."""
-
 from valutatrade_hub.core.exceptions import StorageError
 from valutatrade_hub.core.rate_models import (
     RateQuote,

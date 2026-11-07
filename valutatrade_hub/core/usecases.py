@@ -1,5 +1,3 @@
-"""Сценарии регистрации, торговли и получения валютных курсов."""
-
 import math
 from dataclasses import dataclass
 from typing import Any

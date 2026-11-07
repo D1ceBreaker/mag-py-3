@@ -1,5 +1,3 @@
-"""Загружает настройки приложения из TOML и переменных окружения."""
-
 import os
 import tomllib
 from pathlib import Path

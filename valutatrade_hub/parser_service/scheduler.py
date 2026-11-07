@@ -1,5 +1,3 @@
-"""Запускает обновление курсов однократно или по расписанию."""
-
 import argparse
 import logging
 import math

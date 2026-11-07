@@ -1,5 +1,3 @@
-"""Находит прямые, обратные и кросс-курсы в локальном кеше."""
-
 import math
 from collections import deque
 from collections.abc import Callable

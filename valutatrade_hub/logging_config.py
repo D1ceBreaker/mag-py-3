@@ -1,5 +1,3 @@
-"""Настраивает форматы и ротацию журналов приложения."""
-
 import json
 import logging
 from datetime import UTC, datetime

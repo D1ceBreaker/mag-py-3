@@ -1,5 +1,3 @@
-"""Логирует действия пользователя через типизированный декоратор."""
-
 import inspect
 import logging
 from collections.abc import Callable

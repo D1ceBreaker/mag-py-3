@@ -1,5 +1,3 @@
-"""Предоставляет синхронизированный доступ к JSON-хранилищу."""
-
 import fcntl
 import json
 import os

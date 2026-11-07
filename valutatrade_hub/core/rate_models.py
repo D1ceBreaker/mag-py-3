@@ -1,5 +1,3 @@
-"""Описывает типизированные курсы и формат их хранения в JSON."""
-
 from dataclasses import dataclass, field
 from typing import Self
 

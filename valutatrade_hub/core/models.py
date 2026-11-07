@@ -1,5 +1,3 @@
-"""Модели пользователя, валютного кошелька и портфеля."""
-
 import hashlib
 import hmac
 import math

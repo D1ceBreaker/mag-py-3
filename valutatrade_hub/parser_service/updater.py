@@ -1,5 +1,3 @@
-"""Обновляет срез и историю курсов из независимых источников."""
-
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass

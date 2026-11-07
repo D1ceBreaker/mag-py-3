@@ -1,5 +1,3 @@
-"""Типы валют и реестр поддерживаемых кодов."""
-
 import math
 from abc import ABC, abstractmethod
 

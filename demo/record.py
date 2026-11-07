@@ -1,5 +1,3 @@
-"""Воспроизводимая запись демонстрации с искусственными ответами API."""
-
 import json
 import logging
 import os
