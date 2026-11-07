@@ -1,0 +1,46 @@
+[project]
+name = "finalproject-bulygin-group"
+version = "1.0.0"
+description = "ValutaTrade Hub: консольный симулятор валютного кошелька"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Ruslan Bulygin" }]
+dependencies = ["prettytable>=3.16,<4", "requests>=2.32.5,<3"]
+
+[project.scripts]
+valutatrade = "valutatrade_hub.cli.interface:main"
+vth-parser = "valutatrade_hub.parser_service.scheduler:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["valutatrade_hub"]
+
+[dependency-groups]
+dev = ["ruff>=0.13,<1", "mypy>=1.18,<2", "types-requests>=2.32"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+"valutatrade_hub/infra/database.py" = ["ANN401"]
+"valutatrade_hub/infra/settings.py" = ["ANN401"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.valutatrade]
+data_dir = "data"
+rates_ttl_seconds = 300
+default_base_currency = "USD"
+log_dir = "logs"
+log_format = "json"
+log_max_bytes = 1048576
+log_backup_count = 3
