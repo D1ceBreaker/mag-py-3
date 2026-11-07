@@ -9,11 +9,11 @@
 Нужны Python 3.12 или новее и [uv](https://docs.astral.sh/uv/). Из корня проекта выполните:
 
 ```bash
-uv sync
-uv run valutatrade
+uv sync --locked
+./run.sh
 ```
 
-Без аргументов `valutatrade` запускает интерактивную консоль. Команды `register`, `login` и сделки вводите в одном сеансе: вход хранится в памяти процесса. Для независимых команд можно использовать `uv run valutatrade <команда> ...`, но вход между такими запусками не сохраняется. Справка доступна через `help`, `help buy` и `uv run valutatrade --help`.
+Скрипт `run.sh` переходит в каталог проекта, загружает `.env`, если файл существует, и запускает приложение. Без аргументов он открывает интерактивную консоль. Команды `register`, `login` и сделки вводите в одном сеансе: вход хранится в памяти процесса. Для независимых команд можно использовать `./run.sh <команда> ...`, но вход между такими запусками не сохраняется. Справка доступна через `help`, `help buy` и `./run.sh --help`.
 
 ## Полный сценарий
 
@@ -39,14 +39,14 @@ exit
 
 ```bash
 export EXCHANGERATE_API_KEY=ваш_ключ
-uv run valutatrade update-rates
+./run.sh update-rates
 ```
 
-Или скопируйте `.env.example` в `.env`, задайте ключ в `.env` и запустите `uv run --env-file .env valutatrade update-rates`. Файл `.env` исключен из Git. CoinGecko можно запросить отдельно без ключа:
+Или скопируйте `.env.example` в `.env`, задайте ключ в `.env` и запустите `./run.sh update-rates`. Скрипт сам загрузит файл; `.env` исключен из Git. CoinGecko можно запросить отдельно без ключа:
 
 ```bash
-uv run valutatrade update-rates --source coingecko
-uv run valutatrade show-rates --currency BTC
+./run.sh update-rates --source coingecko
+./run.sh show-rates --currency BTC
 ```
 
 `update-rates` допускает `--source coingecko` или `--source exchangerate`. Без `--source` он опрашивает оба источника. Ошибка одного источника не отменяет успешное обновление другого; если не ответил ни один, команда сообщает об ошибке и оставляет прежний кэш. Персональный ключ ExchangeRate-API задается через переменную окружения `EXCHANGERATE_API_KEY`. Необязательный ключ CoinGecko Demo задается через `COINGECKO_API_KEY` и передается в заголовке запроса. Эндпоинты и таймаут можно изменить переменными `COINGECKO_URL`, `EXCHANGERATE_API_URL`, `PARSER_REQUEST_TIMEOUT`.
@@ -121,19 +121,16 @@ valutatrade_hub/parser_service/  API, обновление, история, ра
 valutatrade_hub/cli/      консольные команды
 valutatrade_hub/logging_config.py  настройка журналов
 valutatrade_hub/decorators.py      логирование действий
-tests/                    автоматические проверки
 demo/                     сценарий и терминальная запись
 main.py                   запуск без установленного скрипта
+run.sh                    запуск приложения с загрузкой .env
 ```
 
 ```bash
-uv run python -m unittest discover -s tests -v
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy valutatrade_hub tests demo
+uv run mypy valutatrade_hub demo
 uv build
 ```
-
-Команды также собраны в `Makefile`: `make install`, `make project`, `make test`, `make lint`, `make typecheck`, `make check`, `make build` и `make demo`. Для повседневной работы используйте `make format` перед `make check`.
 
 Приложение рассчитано на macOS или Linux: блокировка JSON использует `fcntl`. В исходниках нет комментариев и docstrings по требованию к стилю; публичные функции и методы имеют аннотации типов. Это отличается от критерия задания, требующего docstrings.

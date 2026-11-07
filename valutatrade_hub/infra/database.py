@@ -2,7 +2,7 @@ import fcntl
 import json
 import os
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock, RLock
@@ -28,7 +28,7 @@ class DatabaseManager:
             return cls._instance
 
     @contextmanager
-    def transaction(self) -> Iterator[Self]:
+    def transaction(self) -> Generator[Self, None, None]:
         with self._mutex:
             lock_file: TextIO | None = None
             try:
