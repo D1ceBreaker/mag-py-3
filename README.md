@@ -1,0 +1,139 @@
+# ValutaTrade Hub
+
+Консольное приложение для учебной торговли валютами. Оно хранит пользователей, виртуальные кошельки и курсы в JSON-файлах. Отдельный Parser Service получает курсы криптовалют из CoinGecko и фиатных валют из ExchangeRate-API. Сделки используют USD-баланс и актуальные курсы из локального кэша.
+
+Автор — Руслан Булыгин. Каталог называется `finalproject_bulygin_group`: номер группы не указан, поэтому перед сдачей замените `group` в имени каталога и имени пакета в `pyproject.toml`, затем выполните `uv lock`.
+
+## Установка и запуск
+
+Нужны Python 3.12 или новее и [uv](https://docs.astral.sh/uv/). Из корня проекта выполните:
+
+```bash
+uv sync
+uv run valutatrade
+```
+
+Без аргументов `valutatrade` запускает интерактивную консоль. Команды `register`, `login` и сделки вводите в одном сеансе: вход хранится в памяти процесса. Для независимых команд можно использовать `uv run valutatrade <команда> ...`, но вход между такими запусками не сохраняется. Справка доступна через `help`, `help buy` и `uv run valutatrade --help`.
+
+## Полный сценарий
+
+В интерактивной консоли:
+
+```text
+update-rates
+register --username alice --password 1234
+login --username alice --password 1234
+deposit --amount 10000
+buy --currency BTC --amount 0.05
+sell --currency BTC --amount 0.01
+show-portfolio
+get-rate --from USD --to BTC
+show-rates --top 2
+logout
+exit
+```
+
+После регистрации портфель пуст. `deposit` добавляет виртуальные USD для покупки; это учебное пополнение, которое не обращается к платежным сервисам. `buy` списывает стоимость покупки из USD-кошелька, `sell` зачисляет выручку туда же. Сумма сделки задается в единицах покупаемой или продаваемой валюты. Для `buy` и `sell` требуются вход в систему, положительная сумма и свежий курс. Если USD не хватает, сделка отклоняется. Покупка и продажа самого USD отклоняются; его виртуальный баланс пополняется через `deposit`.
+
+Курсы в новом проекте пусты. Перед покупкой загрузите их командой `update-rates`. Для фиатного источника нужен ключ:
+
+```bash
+export EXCHANGERATE_API_KEY=ваш_ключ
+uv run valutatrade update-rates
+```
+
+Или скопируйте `.env.example` в `.env`, задайте ключ в `.env` и запустите `uv run --env-file .env valutatrade update-rates`. Файл `.env` исключен из Git. CoinGecko можно запросить отдельно без ключа:
+
+```bash
+uv run valutatrade update-rates --source coingecko
+uv run valutatrade show-rates --currency BTC
+```
+
+`update-rates` допускает `--source coingecko` или `--source exchangerate`. Без `--source` он опрашивает оба источника. Ошибка одного источника не отменяет успешное обновление другого; если не ответил ни один, команда сообщает об ошибке и оставляет прежний кэш. Персональный ключ ExchangeRate-API задается через переменную окружения `EXCHANGERATE_API_KEY`. Необязательный ключ CoinGecko Demo задается через `COINGECKO_API_KEY` и передается в заголовке запроса. Эндпоинты и таймаут можно изменить переменными `COINGECKO_URL`, `EXCHANGERATE_API_URL`, `PARSER_REQUEST_TIMEOUT`.
+
+## Команды
+
+| Команда | Назначение |
+| --- | --- |
+| `register --username <имя> --password <пароль>` | Создать пользователя. Пароль — от четырех символов. |
+| `login --username <имя> --password <пароль>` | Войти на время текущего сеанса. |
+| `logout` | Завершить текущий сеанс. |
+| `deposit --amount <сумма>` | Пополнить виртуальный USD-кошелек. |
+| `show-portfolio [--base USD]` | Показать кошельки и их суммарную стоимость. |
+| `buy --currency BTC --amount 0.05` | Купить валюту за USD. |
+| `sell --currency BTC --amount 0.01` | Продать валюту за USD. |
+| `get-rate --from USD --to BTC` | Показать курс пары и время обновления. |
+| `update-rates [--source coingecko\|exchangerate]` | Обновить кэш через API. |
+| `show-rates [--currency RUB] [--top 2] [--base EUR]` | Показать и отфильтровать кэш. |
+| `help [команда]`, `exit` | Получить справку или выйти. |
+
+Поддерживаются коды `USD`, `EUR`, `GBP`, `RUB`, `BTC`, `ETH`, `SOL`. `--base` у `show-portfolio` и `show-rates` задает валюту отображения. `--top` оставляет самые дорогие криптовалюты из доступного кэша. Отсутствие нужной пары или устаревший курс приводит к сообщению с предложением запустить `update-rates`.
+
+## Кэш и хранение
+
+`data/users.json` содержит имена, идентификаторы, соль, SHA-256-хеши паролей и ISO-время регистрации. Исходный пароль в файлы хранилища и логи не записывается. `data/portfolios.json` содержит кошельки и историю сделок пользователя в поле `transactions`; изменение балансов и новая сделка сохраняются одной заменой файла. `data/rates.json` содержит последние курсы, `data/exchange_rates.json` — историю полученных значений. Пример записи в `rates.json`:
+
+```json
+{
+  "pairs": {
+    "BTC_USD": {
+      "rate": 59337.21,
+      "updated_at": "2026-11-07T12:00:00Z",
+      "source": "CoinGecko"
+    }
+  },
+  "last_refresh": "2026-11-07T12:00:01Z"
+}
+```
+
+При запросе `get-rate` обратная пара вычисляется как `1 / rate`, а кросс-курс — по имеющимся парам, обычно через USD. По [контракту ExchangeRate-API](https://www.exchangerate-api.com/docs/standard-requests) поле `conversion_rates` содержит число единиц другой валюты за один USD; для записи вида `EUR_USD` оно инвертируется. По умолчанию курс пригоден для сделки пять минут от `updated_at`. Для кросс-курса свежими должны быть все пары пути. Если свежей пары нет, `get-rate` пытается запустить Parser Service; при неудаче команда сообщает об отсутствии свежих данных. Срок задается `rates_ttl_seconds` в `[tool.valutatrade]` файла `pyproject.toml` или переменной `VALUTATRADE_RATES_TTL_SECONDS`. `show-rates` показывает содержимое кэша и время обновления, в том числе устаревшие значения; он не запускает обновление. Чтение снимка дополнительно кэшируется замыканием на одну секунду; изменение файла сразу меняет ключ этого кэша.
+
+Изменяемые параметры `data_dir`, `default_base_currency`, `log_dir`, `log_format`, `log_max_bytes`, `log_backup_count` находятся в `[tool.valutatrade]`. Для отдельных запусков пути можно переопределить через `VALUTATRADE_DATA_DIR` и `VALUTATRADE_LOG_DIR`. `SettingsLoader` и `DatabaseManager` создаются как единственные экземпляры в процессе через `__new__`: этот способ оставляет настройку и доступ к JSON в одном месте. Запись каждого JSON-файла выполняется через временный файл с заменой; изменение портфеля защищено блокировкой на время чтения и записи. Несколько файлов не образуют единую транзакцию.
+
+Действия и ошибки пишутся в ротируемые `logs/actions.log` и `logs/parser.log` в формате JSON. В логах нет исходных паролей и API-ключей. Пути `data/` и `logs/` создаются при необходимости.
+
+## Parser Service и демонстрация
+
+Парсер можно запускать вручную через `update-rates` или отдельным процессом:
+
+```bash
+uv run vth-parser --once
+uv run vth-parser --interval 300
+```
+
+Во втором варианте он повторяет обновление с указанным интервалом в секундах. Для ограничения источника используйте `--source coingecko` или `--source exchangerate`. Остановите процесс `Ctrl+C`.
+
+Демонстрация не обращается к внешним API и использует искусственные курсы. Она создает терминальную запись Asciinema и текстовый транскрипт:
+
+```bash
+uv run python demo/record.py
+```
+
+Результаты: `demo/session.cast` и `demo/session.txt`. Запись можно открыть командой `asciinema play demo/session.cast`, если Asciinema установлен отдельно. В демонстрации показаны регистрация, вход, пополнение, покупка, продажа, портфель, курс, обновление и просмотр курсов, а также ошибки ввода и нехватки средств.
+
+## Структура и проверка
+
+```text
+data/                     JSON-хранилище
+valutatrade_hub/core/     валюты, модели, сделки, курсы
+valutatrade_hub/infra/    настройки и JSON-хранилище
+valutatrade_hub/parser_service/  API, обновление, история, расписание
+valutatrade_hub/cli/      консольные команды
+valutatrade_hub/logging_config.py  настройка журналов
+valutatrade_hub/decorators.py      логирование действий
+tests/                    автоматические проверки
+demo/                     сценарий и терминальная запись
+main.py                   запуск без установленного скрипта
+```
+
+```bash
+uv run python -m unittest discover -s tests -v
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy valutatrade_hub tests demo
+uv build
+```
+
+Команды также собраны в `Makefile`: `make install`, `make project`, `make test`, `make lint`, `make typecheck`, `make check`, `make build` и `make demo`. Для повседневной работы используйте `make format` перед `make check`.
+
+Приложение рассчитано на macOS или Linux: блокировка JSON использует `fcntl`. В исходниках нет комментариев и docstrings по требованию к стилю; публичные функции и методы имеют аннотации типов. Это отличается от критерия задания, требующего docstrings.
