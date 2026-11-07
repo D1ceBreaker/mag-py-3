@@ -1,3 +1,5 @@
+"""Предоставляет синхронизированный доступ к JSON-хранилищу."""
+
 import fcntl
 import json
 import os
@@ -13,12 +15,19 @@ from valutatrade_hub.infra.settings import SettingsLoader
 
 
 class DatabaseManager:
+    """Единственный менеджер JSON-хранилища в процессе.
+
+    Реализация через ``__new__`` сохраняет общую потоковую блокировку
+    без отдельного метакласса.
+    """
+
     _instance: ClassVar[Self | None] = None
     _creation_lock: ClassVar[Lock] = Lock()
     _mutex: RLock
     _depth: int
 
     def __new__(cls) -> Self:
+        """Возвращает экземпляр с повторно используемой блокировкой."""
         with cls._creation_lock:
             if cls._instance is None:
                 instance = super().__new__(cls)
@@ -29,6 +38,12 @@ class DatabaseManager:
 
     @contextmanager
     def transaction(self) -> Generator[Self, None, None]:
+        """Блокирует операции на время работы внутри контекста.
+
+        Повторный вход использует ту же блокировку. Потоки синхронизируются
+        через RLock, процессы — через файловую блокировку. Общего отката
+        изменений нескольких JSON-файлов этот контекст не выполняет.
+        """
         with self._mutex:
             lock_file: TextIO | None = None
             try:
@@ -51,6 +66,7 @@ class DatabaseManager:
                     lock_file.close()
 
     def read(self, filename: str, default: Any = None) -> Any:
+        """Читает JSON или возвращает default, если файл отсутствует."""
         with self.transaction():
             path = SettingsLoader().path(filename)
             try:
@@ -64,6 +80,7 @@ class DatabaseManager:
                 ) from error
 
     def write(self, filename: str, data: Any) -> None:
+        """Сохраняет один JSON-файл через временный файл и замену."""
         with self.transaction():
             path = SettingsLoader().path(filename)
             temporary: Path | None = None

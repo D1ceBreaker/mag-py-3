@@ -1,3 +1,5 @@
+"""Обновляет срез и историю курсов из независимых источников."""
+
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -22,18 +24,23 @@ LOGGER = logging.getLogger("valutatrade.parser")
 
 @dataclass(frozen=True, slots=True)
 class UpdateResult:
+    """Результат обновления с числом курсов, временем и ошибками источников."""
+
     updated_count: int
     last_refresh: str
     errors: dict[str, str]
 
 
 class RatesUpdater:
+    """Объединяет курсы источников и передаёт их в хранилище."""
+
     def __init__(
         self,
         clients: Sequence[BaseApiClient] | None = None,
         storage: RatesStorage | None = None,
         config: ParserConfig | None = None,
     ) -> None:
+        """Создаёт обновитель с указанными или стандартными клиентами."""
         self.config = config or ParserConfig()
         self.clients = (
             tuple(clients)
@@ -46,6 +53,11 @@ class RatesUpdater:
         self.storage = storage or RatesStorage(config=self.config)
 
     def run_update(self, source: str | None = None) -> UpdateResult:
+        """Опрашивает источники и сохраняет успешные ответы.
+
+        Сбой одного источника попадает в результат. Если не ответил ни один,
+        выбрасывает ApiRequestError без изменения сохранённых курсов.
+        """
         selected = self.clients
         if source is not None:
             selected = tuple(client for client in self.clients if client.name == source)

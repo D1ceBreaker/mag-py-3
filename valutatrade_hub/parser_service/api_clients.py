@@ -1,3 +1,5 @@
+"""Получает и приводит ответы внешних API к курсам валютных пар."""
+
 import math
 from abc import ABC, abstractmethod
 from typing import Any
@@ -9,6 +11,7 @@ from valutatrade_hub.parser_service.config import ParserConfig
 
 
 def _checked_rate(value: object, source: str) -> float:
+    """Возвращает положительный конечный курс или сообщает об ошибке API."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ApiRequestError(f"{source}: некорректный тип курса")
     try:
@@ -31,6 +34,7 @@ def _request_json(
     timeout: float,
     headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    """Выполняет GET-запрос и возвращает объект JSON после проверки ответа."""
     try:
         response = requests.get(url, params=params, timeout=timeout, headers=headers)
     except requests.exceptions.RequestException as error:
@@ -51,20 +55,27 @@ def _request_json(
 
 
 class BaseApiClient(ABC):
+    """Задаёт единый интерфейс источника валютных курсов."""
+
     name: str
 
     @abstractmethod
     def fetch_rates(self) -> dict[str, float]:
+        """Возвращает курсы в формате «код_код → числовой курс»."""
         raise NotImplementedError
 
 
 class CoinGeckoClient(BaseApiClient):
+    """Получает цены отслеживаемых криптовалют из CoinGecko."""
+
     name = "coingecko"
 
     def __init__(self, config: ParserConfig | None = None) -> None:
+        """Создаёт клиент с заданной или текущей конфигурацией парсера."""
         self.config = config or ParserConfig()
 
     def fetch_rates(self) -> dict[str, float]:
+        """Возвращает стоимость криптовалют в базовой валюте."""
         ids = [
             self.config.crypto_id_map[code] for code in self.config.crypto_currencies
         ]
@@ -98,12 +109,16 @@ class CoinGeckoClient(BaseApiClient):
 
 
 class ExchangeRateApiClient(BaseApiClient):
+    """Получает и инвертирует фиатные курсы ExchangeRate-API."""
+
     name = "exchangerate"
 
     def __init__(self, config: ParserConfig | None = None) -> None:
+        """Создаёт клиент с заданной или текущей конфигурацией парсера."""
         self.config = config or ParserConfig()
 
     def fetch_rates(self) -> dict[str, float]:
+        """Возвращает стоимость фиатных валют в базовой валюте."""
         key = self.config.exchangerate_api_key
         if not key:
             raise ApiRequestError("не задан EXCHANGERATE_API_KEY")

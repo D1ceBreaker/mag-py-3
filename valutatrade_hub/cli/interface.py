@@ -1,3 +1,5 @@
+"""Разбор команд и вывод результатов консольного приложения."""
+
 import argparse
 import shlex
 import sys
@@ -18,11 +20,15 @@ from valutatrade_hub.logging_config import configure_logging
 
 
 class CommandParser(argparse.ArgumentParser):
+    """Парсер аргументов с доменными ошибками вместо завершения процесса."""
+
     def error(self, message: str) -> Never:
+        """Преобразует ошибку разбора команды в ValidationError."""
         raise ValidationError(f"Ошибка команды: {message}. Выполните help")
 
 
 def build_parser() -> CommandParser:
+    """Создаёт парсер команд кошелька, курсов и управления сессией."""
     parser = CommandParser(
         prog="valutatrade", description="Виртуальный валютный кошелёк"
     )
@@ -58,17 +64,26 @@ def build_parser() -> CommandParser:
 
 
 class Console:
+    """Консольный интерфейс торгового сервиса с интерактивной сессией."""
+
     def __init__(
         self,
         service: TradingService | None = None,
         output: Callable[[str], None] = print,
     ) -> None:
+        """Подключает торговый сервис, функцию вывода и парсер команд."""
         self.service = service or TradingService()
         self.output = output
         self.parser = build_parser()
         self.should_exit = False
 
     def execute(self, command: str | Sequence[str]) -> int:
+        """Выполняет команду и возвращает её код завершения.
+
+        Строка разбирается через shlex; последовательность передаётся парсеру
+        как готовые аргументы. Ошибки команды и домена выводятся пользователю
+        с кодом 2, не прерывая интерактивную сессию.
+        """
         try:
             tokens = shlex.split(command) if isinstance(command, str) else list(command)
             if not tokens:
@@ -87,6 +102,7 @@ class Console:
         return 2
 
     def _dispatch(self, args: argparse.Namespace) -> None:
+        """Вызывает сценарий команды и форматирует его результат."""
         match args.command:
             case "register":
                 user = self.service.register(args.username, args.password)
@@ -183,6 +199,7 @@ class Console:
                 self.should_exit = True
 
     def _show_trade(self, result: TradeResult, action: str) -> None:
+        """Выводит количество валюты, курс и изменения балансов сделки."""
         title = "Покупка выполнена" if action == "buy" else "Продажа выполнена"
         value_title = (
             "Оценочная стоимость покупки" if action == "buy" else "Оценочная выручка"
@@ -201,6 +218,7 @@ class Console:
         self.output(f"{value_title}: {result.usd_value:,.2f} USD")
 
     def run(self) -> int:
+        """Читает команды до exit, конца ввода или прерывания с клавиатуры."""
         self.output(
             "ValutaTrade Hub. Выполните help для списка команд, exit для выхода."
         )
@@ -218,6 +236,7 @@ class Console:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Запускает отдельную команду либо интерактивную сессию приложения."""
     try:
         configure_logging()
         console = Console()

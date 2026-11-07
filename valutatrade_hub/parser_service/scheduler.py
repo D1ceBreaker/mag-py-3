@@ -1,3 +1,5 @@
+"""Запускает обновление курсов однократно или по расписанию."""
+
 import argparse
 import logging
 import math
@@ -13,6 +15,7 @@ LOGGER = logging.getLogger("valutatrade.parser")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Запускает парсер и возвращает код завершения процесса."""
     parser = argparse.ArgumentParser(prog="vth-parser")
     parser.add_argument("--interval", type=float, default=300.0)
     parser.add_argument("--once", action="store_true")

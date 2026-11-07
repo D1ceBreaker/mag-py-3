@@ -1,3 +1,5 @@
+"""Логирует действия пользователя через типизированный декоратор."""
+
 import inspect
 import logging
 from collections.abc import Callable
@@ -12,11 +14,19 @@ LOGGER = logging.getLogger("valutatrade.actions")
 def log_action(
     action: str, *, verbose: bool = False
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    """Логирует результат вызова функции как действие.
+
+    При verbose записывает баланс до и после операции, если эти значения
+    есть в результате. Исключения логирует и пробрасывает вызывающему коду.
+    """
+
     def decorate(function: Callable[_P, _T]) -> Callable[_P, _T]:
+        """Создаёт обёртку для функции с указанным действием."""
         signature = inspect.signature(function)
 
         @wraps(function)
         def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+            """Вызывает функцию и фиксирует результат в журнале."""
             bound = signature.bind(*args, **kwargs)
             service = bound.arguments.get("self")
             user = getattr(service, "current_user", None)

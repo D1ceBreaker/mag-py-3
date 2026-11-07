@@ -1,3 +1,5 @@
+"""Сохраняет актуальный срез курсов и историю измерений в JSON."""
+
 from valutatrade_hub.core.exceptions import StorageError
 from valutatrade_hub.core.rate_models import (
     RateQuote,
@@ -10,21 +12,29 @@ from valutatrade_hub.parser_service.config import ParserConfig
 
 
 class RatesStorage:
+    """Хранилище актуальных курсов и истории по валютным парам."""
+
     def __init__(
         self,
         database: DatabaseManager | None = None,
         config: ParserConfig | None = None,
     ) -> None:
+        """Связывает хранилище с настройками путей к JSON-файлам."""
         self.database = database or DatabaseManager()
         self.config = config or ParserConfig()
 
     def read_cache(self) -> RatesSnapshot:
+        """Читает и проверяет последний сохранённый снимок курсов."""
         data = self.database.read(
             str(self.config.rates_file_path), RatesSnapshot().to_dict()
         )
         return RatesSnapshot.from_dict(data)
 
     def save_rates(self, pairs: dict[str, RateQuote], last_refresh: str) -> int:
+        """Сохраняет только курсы новее текущих и возвращает их число.
+
+        Каждый JSON-файл заменяется атомарно; общей транзакции для них нет.
+        """
         parse_timestamp(last_refresh)
         with self.database.transaction():
             cache = self.read_cache()

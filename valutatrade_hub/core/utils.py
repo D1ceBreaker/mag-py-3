@@ -1,3 +1,5 @@
+"""Проверка чисел и кодов валют, работа со временем и краткоживущим кешем."""
+
 import math
 import re
 import time
@@ -14,6 +16,7 @@ _T = TypeVar("_T")
 
 
 def normalize_currency(code: str) -> str:
+    """Возвращает код из 2–5 латинских букв в верхнем регистре."""
     if not isinstance(code, str):
         raise ValidationError("Код валюты должен быть строкой из 2–5 латинских букв")
     normalized = code.strip().upper()
@@ -23,6 +26,7 @@ def normalize_currency(code: str) -> str:
 
 
 def validate_amount(value: object) -> float:
+    """Возвращает положительную конечную сумму либо вызывает ValidationError."""
     if isinstance(value, bool) or not isinstance(value, (float, int)):
         raise ValidationError("'amount' должен быть положительным числом")
     try:
@@ -35,6 +39,7 @@ def validate_amount(value: object) -> float:
 
 
 def validate_balance(value: object) -> float:
+    """Возвращает конечный неотрицательный баланс либо вызывает ValidationError."""
     if isinstance(value, bool) or not isinstance(value, (float, int)):
         raise ValidationError("Баланс должен быть неотрицательным числом")
     try:
@@ -47,10 +52,12 @@ def validate_balance(value: object) -> float:
 
 
 def utc_now() -> datetime:
+    """Возвращает текущее время с часовым поясом UTC."""
     return datetime.now(UTC)
 
 
 def iso_utc(value: datetime | None = None) -> str:
+    """Возвращает метку времени в UTC с микросекундами и суффиксом Z."""
     moment = value or utc_now()
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
@@ -60,6 +67,7 @@ def iso_utc(value: datetime | None = None) -> str:
 
 
 def parse_timestamp(value: str) -> datetime:
+    """Преобразует ISO-время в UTC; время без зоны считает временем UTC."""
     try:
         moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (AttributeError, ValueError) as error:
@@ -70,14 +78,20 @@ def parse_timestamp(value: str) -> datetime:
 
 
 def cached_rates(ttl_seconds: float) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    """Кеширует результат вызова на TTL секунд с ограничением числа записей.
+
+    Аргументы обёрнутой функции должны быть хешируемыми.
+    """
     if not math.isfinite(ttl_seconds) or ttl_seconds <= 0:
         raise ValidationError("TTL должен быть положительным числом")
 
     def decorate(function: Callable[_P, _T]) -> Callable[_P, _T]:
+        """Создаёт замыкание кеша для одной функции."""
         cache: dict[tuple[object, ...], tuple[float, _T]] = {}
 
         @wraps(function)
         def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+            """Возвращает сохранённый или заново вычисленный результат."""
             key: tuple[object, ...] = (*args, *sorted(kwargs.items()))
             now = time.monotonic()
             cached = cache.get(key)

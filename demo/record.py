@@ -1,3 +1,5 @@
+"""Воспроизводимая запись демонстрации с искусственными ответами API."""
+
 import json
 import logging
 import os
@@ -36,12 +38,16 @@ COMMANDS: tuple[tuple[str, int, str], ...] = (
 
 
 class DemoResponse:
+    """Ответ API с заранее заданным JSON для демонстрации."""
+
     status_code = 200
 
     def __init__(self, payload: dict[str, object]) -> None:
+        """Сохраняет данные искусственного JSON-ответа."""
         self.payload = payload
 
     def json(self) -> dict[str, object]:
+        """Возвращает заданные данные ответа API."""
         return self.payload
 
 
@@ -52,6 +58,7 @@ def demo_get(
     timeout: float,
     headers: dict[str, str] | None = None,
 ) -> DemoResponse:
+    """Возвращает искусственный ответ для известного URL внешнего API."""
     if url.startswith("https://api.coingecko.com/"):
         return DemoResponse(
             {
@@ -77,6 +84,7 @@ def demo_get(
 
 
 def close_loggers() -> None:
+    """Удаляет и закрывает обработчики логов демонстрационного процесса."""
     for name in ("valutatrade.actions", "valutatrade.parser"):
         logger = logging.getLogger(name)
         for handler in logger.handlers[:]:
@@ -85,6 +93,7 @@ def close_loggers() -> None:
 
 
 def run_commands() -> list[str]:
+    """Выполняет сценарий демонстрации и собирает команды с их выводом."""
     events = [INTRO + "\n"]
     console = Console()
     for command, expected_status, expected_text in COMMANDS:
@@ -102,6 +111,11 @@ def run_commands() -> list[str]:
 
 
 def record() -> tuple[Path, Path]:
+    """Создаёт Asciinema-запись и транскрипт на искусственных курсах.
+
+    Использует временное хранилище и подменяет HTTP-запросы. Возвращает пути
+    к session.cast и session.txt в каталоге сценария.
+    """
     directory = Path(__file__).resolve().parent
     settings = SettingsLoader()
     with tempfile.TemporaryDirectory(prefix="valutatrade-demo-") as temporary:
@@ -148,6 +162,7 @@ def record() -> tuple[Path, Path]:
 
 
 def main() -> None:
+    """Создаёт демонстрационные файлы и печатает пути к ним."""
     cast_path, text_path = record()
     print(f"Создано: {cast_path}")
     print(f"Создано: {text_path}")

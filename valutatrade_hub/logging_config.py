@@ -1,3 +1,5 @@
+"""Настраивает форматы и ротацию журналов приложения."""
+
 import json
 import logging
 from datetime import UTC, datetime
@@ -8,7 +10,10 @@ from valutatrade_hub.infra.settings import SettingsLoader
 
 
 class JsonFormatter(logging.Formatter):
+    """Форматтер записи журнала в виде JSON с временем UTC."""
+
     def format(self, record: logging.LogRecord) -> str:
+        """Преобразует сообщение и поля события в строку JSON."""
         event = {
             "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,
@@ -19,7 +24,10 @@ class JsonFormatter(logging.Formatter):
 
 
 class TextFormatter(logging.Formatter):
+    """Форматтер текстовой записи с полями события и временем UTC."""
+
     def format(self, record: logging.LogRecord) -> str:
+        """Возвращает строку журнала с доступными полями события."""
         timestamp = datetime.fromtimestamp(record.created, UTC).isoformat()
         context = " ".join(
             f"{key}={value!r}" for key, value in getattr(record, "event", {}).items()
@@ -30,6 +38,7 @@ class TextFormatter(logging.Formatter):
 
 
 def configure_logging() -> None:
+    """Создаёт ротируемые журналы действий и парсера с уровнем INFO."""
     settings = SettingsLoader()
     directory = Path(str(settings.get("log_dir"))).expanduser()
     directory.mkdir(parents=True, exist_ok=True)

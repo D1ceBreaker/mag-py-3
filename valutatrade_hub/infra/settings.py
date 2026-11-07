@@ -1,3 +1,5 @@
+"""Загружает настройки приложения из TOML и переменных окружения."""
+
 import os
 import tomllib
 from pathlib import Path
@@ -8,11 +10,18 @@ from valutatrade_hub.core.exceptions import ValidationError
 
 
 class SettingsLoader:
+    """Единственный загрузчик настроек в процессе.
+
+    Реализация через ``__new__`` позволяет повторно использовать экземпляр
+    без отдельного метакласса.
+    """
+
     _instance: ClassVar[Self | None] = None
     _lock: ClassVar[Lock] = Lock()
     _values: dict[str, Any]
 
     def __new__(cls) -> Self:
+        """Возвращает общий экземпляр и при создании загружает настройки."""
         with cls._lock:
             if cls._instance is None:
                 instance = super().__new__(cls)
@@ -21,6 +30,7 @@ class SettingsLoader:
             return cls._instance
 
     def reload(self) -> None:
+        """Перечитывает настройки и проверяет допустимость числовых значений."""
         values: dict[str, Any] = {
             "data_dir": "data",
             "rates_ttl_seconds": 300,
@@ -54,15 +64,19 @@ class SettingsLoader:
         self._values = values
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Возвращает значение настройки или указанное значение по умолчанию."""
         return self._values.get(key, default)
 
     @property
     def data_dir(self) -> Path:
+        """Возвращает абсолютный путь к каталогу данных."""
         return Path(str(self.get("data_dir"))).expanduser().resolve()
 
     @property
     def rates_ttl_seconds(self) -> int:
+        """Возвращает допустимый возраст курса в секундах."""
         return int(self.get("rates_ttl_seconds"))
 
     def path(self, filename: str) -> Path:
+        """Возвращает путь в каталоге данных или переданный абсолютный путь."""
         return self.data_dir / filename

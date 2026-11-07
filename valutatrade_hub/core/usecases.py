@@ -1,3 +1,5 @@
+"""Сценарии регистрации, торговли и получения валютных курсов."""
+
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -22,6 +24,8 @@ from valutatrade_hub.parser_service.updater import RatesUpdater, UpdateResult
 
 @dataclass(frozen=True, slots=True)
 class TradeResult:
+    """Результат сделки с изменениями валютного и USD-балансов."""
+
     currency_code: str
     amount: float
     rate: float
@@ -34,6 +38,8 @@ class TradeResult:
 
 @dataclass(frozen=True, slots=True)
 class PortfolioRow:
+    """Баланс одного кошелька и его стоимость в базовой валюте."""
+
     currency_code: str
     balance: float
     value: float
@@ -41,6 +47,8 @@ class PortfolioRow:
 
 @dataclass(frozen=True, slots=True)
 class PortfolioView:
+    """Данные портфеля для вывода в командном интерфейсе."""
+
     username: str
     base: str
     rows: list[PortfolioRow]
@@ -48,12 +56,15 @@ class PortfolioView:
 
 
 class TradingService:
+    """Проводит операции пользователя над портфелем и курсами."""
+
     def __init__(
         self,
         database: DatabaseManager | None = None,
         rates: RatesService | None = None,
         updater: RatesUpdater | None = None,
     ) -> None:
+        """Получает хранилище и сервисы курсов для торговых сценариев."""
         self.database = database or DatabaseManager()
         self.rates = rates or RatesService(self.database)
         self.updater = updater or RatesUpdater()
@@ -61,9 +72,11 @@ class TradingService:
 
     @property
     def current_user(self) -> User | None:
+        """Возвращает пользователя текущей сессии или None."""
         return self._current_user
 
     def _records(self, filename: str) -> list[dict[str, Any]]:
+        """Читает список записей JSON и проверяет его верхний уровень."""
         records = self.database.read(filename, [])
         if not isinstance(records, list) or any(
             not isinstance(record, dict) for record in records
@@ -72,6 +85,7 @@ class TradingService:
         return records
 
     def register(self, username: str, password: str) -> User:
+        """Создаёт пользователя с уникальным именем и пустым портфелем."""
         with self.database.transaction():
             users = self._records("users.json")
             username = username.strip()
@@ -94,6 +108,7 @@ class TradingService:
             return user
 
     def login(self, username: str, password: str) -> User:
+        """Проверяет пароль и сохраняет пользователя в текущей сессии."""
         with self.database.transaction():
             users = self._records("users.json")
         for record in users:
@@ -109,14 +124,17 @@ class TradingService:
         raise AuthenticationError(f"Пользователь '{username}' не найден")
 
     def logout(self) -> None:
+        """Завершает текущую сессию пользователя."""
         self._current_user = None
 
     def _require_user(self) -> User:
+        """Возвращает пользователя сессии или требует выполнить вход."""
         if self._current_user is None:
             raise AuthenticationError("Сначала выполните login")
         return self._current_user
 
     def _load_portfolio(self) -> Portfolio:
+        """Читает портфель текущего пользователя из JSON-хранилища."""
         user = self._require_user()
         for record in self._records("portfolios.json"):
             if record.get("user_id") == user.user_id:
@@ -133,6 +151,7 @@ class TradingService:
     def _save_portfolio(
         self, portfolio: Portfolio, action: str, result: TradeResult
     ) -> None:
+        """Сохраняет баланс и запись сделки одним обновлением портфеля."""
         records = self._records("portfolios.json")
         for index, record in enumerate(records):
             if record.get("user_id") != portfolio.user_id:
@@ -159,6 +178,7 @@ class TradingService:
 
     @log_action("DEPOSIT", verbose=True)
     def deposit(self, amount: float) -> TradeResult:
+        """Пополняет виртуальный USD-кошелёк текущего пользователя."""
         self._require_user()
         amount = validate_amount(amount)
         with self.database.transaction():
@@ -180,6 +200,7 @@ class TradingService:
             return result
 
     def show_portfolio(self, base: str | None = None) -> PortfolioView:
+        """Возвращает кошельки и их суммарную стоимость в базовой валюте."""
         user = self._require_user()
         base = base or str(SettingsLoader().get("default_base_currency"))
         try:
@@ -203,13 +224,16 @@ class TradingService:
 
     @log_action("BUY", verbose=True)
     def buy(self, currency_code: str, amount: float) -> TradeResult:
+        """Покупает указанное количество валюты за средства USD-кошелька."""
         return self._trade(currency_code, amount, buying=True)
 
     @log_action("SELL", verbose=True)
     def sell(self, currency_code: str, amount: float) -> TradeResult:
+        """Продаёт указанное количество валюты и зачисляет выручку в USD."""
         return self._trade(currency_code, amount, buying=False)
 
     def _trade(self, currency_code: str, amount: float, *, buying: bool) -> TradeResult:
+        """Проверяет курс и остатки, затем сохраняет покупку или продажу."""
         self._require_user()
         code = get_currency(currency_code).code
         amount = validate_amount(amount)
@@ -254,9 +278,11 @@ class TradingService:
             return result
 
     def get_rate(self, from_code: str, to_code: str) -> RateQuote:
+        """Возвращает свежий курс исходной валюты к целевой."""
         return self.rates.get_rate(from_code, to_code)
 
     def update_rates(self, source: str | None = None) -> UpdateResult:
+        """Обновляет кеш через все источники или только выбранный."""
         return self.updater.run_update(source)
 
     def show_rates(
@@ -265,4 +291,5 @@ class TradingService:
         top: int | None = None,
         base: str = "USD",
     ) -> list[RateRow]:
+        """Возвращает строки кеша с фильтрами валюты, базы и числа лидеров."""
         return self.rates.list_rates(currency_code, top, base)

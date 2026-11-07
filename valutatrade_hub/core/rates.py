@@ -1,3 +1,5 @@
+"""Находит прямые, обратные и кросс-курсы в локальном кеше."""
+
 import math
 from collections import deque
 from collections.abc import Callable
@@ -27,6 +29,8 @@ from valutatrade_hub.infra.settings import SettingsLoader
 
 @dataclass(frozen=True, slots=True)
 class RateRow:
+    """Курс для отображения вместе с базовой валютой и признаком устаревания."""
+
     currency_code: str
     base: str
     quote: RateQuote
@@ -34,21 +38,26 @@ class RateRow:
 
 
 class RatesService:
+    """Читает локальные курсы и обновляет их при отсутствии свежих данных."""
+
     def __init__(
         self,
         database: DatabaseManager | None = None,
         refresh: Callable[[], object] | None = None,
     ) -> None:
+        """Создаёт сервис курсов с хранилищем и необязательной функцией обновления."""
         self.database = database or DatabaseManager()
         self.settings = SettingsLoader()
         self._refresh = refresh
         self._cached_read = cached_rates(1.0)(self._load_snapshot)
 
     def _load_snapshot(self, file_version: tuple[str, int, int]) -> RatesSnapshot:
+        """Читает и проверяет снимок для версии файла, используемой кешем."""
         data = self.database.read("rates.json", RatesSnapshot().to_dict())
         return RatesSnapshot.from_dict(data)
 
     def snapshot(self) -> RatesSnapshot:
+        """Возвращает снимок, перечитывая файл после его изменения."""
         path = self.settings.path("rates.json")
         try:
             stat = path.stat()
@@ -60,12 +69,14 @@ class RatesService:
         return self._cached_read(version)
 
     def is_fresh(self, timestamp: str) -> bool:
+        """Проверяет возраст курса по TTL из настроек приложения."""
         age = (utc_now() - parse_timestamp(timestamp)).total_seconds()
         return 0 <= age <= self.settings.rates_ttl_seconds
 
     def _find_rate(
         self, source: str, target: str, *, allow_stale: bool = False
     ) -> RateQuote | None:
+        """Ищет путь конвертации по текущим или всем сохранённым парам."""
         if source == target:
             return RateQuote(1.0, iso_utc(), "identity")
         graph: dict[str, list[tuple[str, RateQuote]]] = {}
@@ -104,6 +115,10 @@ class RatesService:
         return None
 
     def get_rate(self, from_code: str, to_code: str) -> RateQuote:
+        """Возвращает свежий курс пары, обновляя кеш при необходимости.
+
+        Если обновление не даёт свежей пары, выбрасывает RateUnavailableError.
+        """
         source = get_currency(from_code).code
         target = get_currency(to_code).code
         cached = self._find_rate(source, target)
@@ -135,6 +150,7 @@ class RatesService:
         top: int | None = None,
         base: str = "USD",
     ) -> list[RateRow]:
+        """Возвращает курсы кеша с фильтрами, включая устаревшие записи."""
         base = get_currency(base).code
         if top is not None and (isinstance(top, bool) or top <= 0):
             raise ValidationError("'top' должен быть положительным целым числом")

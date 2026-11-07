@@ -1,3 +1,5 @@
+"""Хранит параметры источников курсов и файлов парсера."""
+
 import math
 import os
 from dataclasses import dataclass, field
@@ -23,6 +25,8 @@ HISTORY_FILE_NAME: Final[str] = "exchange_rates.json"
 
 @dataclass(frozen=True, slots=True)
 class ParserConfig:
+    """Настройки источников, загружаемые при создании экземпляра."""
+
     coingecko_api_key: str | None = field(
         default_factory=lambda: os.getenv("COINGECKO_API_KEY")
     )
@@ -54,5 +58,6 @@ class ParserConfig:
     )
 
     def __post_init__(self) -> None:
+        """Проверяет, что сетевой таймаут конечен и положителен."""
         if not math.isfinite(self.request_timeout) or self.request_timeout <= 0:
             raise ValueError("PARSER_REQUEST_TIMEOUT должен быть положительным числом")

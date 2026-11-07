@@ -27,6 +27,7 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ANN"]
+extend-select = ["D1", "D200", "D201", "D202", "D204", "D205", "D209", "D300"]
 
 [tool.ruff.lint.per-file-ignores]
 "valutatrade_hub/infra/database.py" = ["ANN401"]
